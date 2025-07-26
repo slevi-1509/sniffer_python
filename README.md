@@ -2,21 +2,25 @@ Sniffer application with python (For Raspberry Pi-5 as an Access-Point):
 using Scapy library for capturing packet.
 using MongoDB for devices divcovered on the local network.
 
-configuration file (sniffer.conf) contain the lists of anomalies to captue
+configuration file (sniffer.conf) contain the lists of anomalies to capture.
 for now it's a 'url' list of strings the are part of a DNS addresses.
 
 On load, application detect the active network connection and assign all capturing to it,
 and user required to enter 3 inputs:
-  * interval: pause time in seconds between sniffig sessions.
-  * packets: number of packets to capture in each session.
-  * sessions: number of sessions to run.
+  * interval: pause time in seconds between sniffing sessions.
+  * packets_count: number of packets to capture in each session.
+  * no_of_sessions: number of sessions to run.
 
 Every packet is checked for:
 
 * source device information: 
 
   If the source mac address is not found in DB and the ip address belong to the local network,
-  the device information will be stored on MongoDB.
+  2 checks will run on the device IP:
+  * an attempt to get the host name of the device.
+  * an active scan for open system ports (0 - 1023) using threading.
+  all the collected device information will be stored on MongoDB.
+
   If the source mac address found in DB and the new ip address is different, the document will be updated.
   
 * DNS Requsets:  

@@ -1,14 +1,16 @@
 from scapy.all import sniff, DNS, DNSQR, DNSRR
 from scapy import interfaces
+from itertools import count
+from time import ctime
 import ipaddress
 import json
 import time
-from time import ctime
 import os
 import socket
 import threading
 import pymongo
 import sys
+
 
 def get_config():
     config_file_path = "sniffer.conf"
@@ -36,10 +38,12 @@ def handle_packet(packet, network, packets, config, mongo_col):
         if doc_exist is None:
             if ipaddress.ip_address(pack_sum['src_ip']) in network:
                 host_name = get_hostname_from_ip(pack_sum['src_ip'])
-                mongo_col.insert_one({**pack_sum, 'host_name': host_name})
+                port_scan_result = port_scan(pack_sum['src_ip'], 0, 1023)
+                mongo_col.insert_one({**pack_sum, 'host_name': host_name, 'port_scan_result': port_scan_result})
         elif doc_exist['src_ip'] != pack_sum['src_ip']:
             if ipaddress.ip_address(pack_sum['src_ip']) in network:
-                mongo_col.update_one({ 'src_mac': pack_sum['src_mac'] }, { '$set': { 'src_ip': pack_sum['src_ip'] } })
+                port_scan_result = port_scan(pack_sum['src_ip'], 0, 1023)
+                mongo_col.update_one({ 'src_mac': pack_sum['src_mac'] }, { '$set': { 'src_ip': pack_sum['src_ip'], 'port_scan_result': port_scan_result } })
         pack_sum = {**pack_sum,
                 'src_port': pack_dict['payload']['payload']['sport'] if 'sport' in pack_dict['payload']['payload'] else None,
                 'dst_port': pack_dict['payload']['payload']['dport'] if 'dport' in pack_dict['payload']['payload'] else None,
@@ -83,18 +87,20 @@ def get_hostname_from_ip(ip):
         return f"An error occurred: {e}"
 
 def port_scan(host, start_port, end_port):
+    open_ports = []
     for port in range(start_port, end_port+1):
-        threading.Thread(target=scan_port, args=(host, port)).start()
+        threading.Thread(target=scan_port, args=(host, port, open_ports)).start()
+    return open_ports
 
-def scan_port(host, port):
+def scan_port(host, port, open_ports):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(0.5)
         result = sock.connect_ex((host, port))
         if result == 0:
-            print("Port {} is open".format(port))
+            open_ports.append("Port {} is open".format(port))
         elif result == 10013:  # Connection refused
-            print("Port {} is open but permission denied".format(port))
+            open_ports.append("Port {} is open but permission denied".format(port))
         sock.close()
     except:
         pass
@@ -114,9 +120,11 @@ def main(interval, packets_count, no_of_sessions=0):
     filter = "tcp or udp or icmp"
     with open(log_file_path, "a") as log_file:
         try:
-            while no_of_sessions != 0:
-                sniff(iface=interface, filter=filter, prn=lambda pkt: handle_packet(pkt, network, packets, config, mongo_col), count=packets_count, store=0)
-                no_of_sessions -= 1
+            for i in count(0):
+                sniff(iface=interface, filter=filter, prn=lambda pkt: handle_packet(pkt, network, packets, config, mongo_col), 
+                      count=packets_count, store=0)
+                if i == no_of_sessions-1:
+                    break
             for packet in packets:
                 log_file.write(f"{packet}\n")
             # json.dump(packets, log_file, indent=4)
