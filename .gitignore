@@ -13,3 +13,5 @@ dist/
 build/
 sniffer_errors.log
 sniffer_log.json
+.env
+openai_request.py

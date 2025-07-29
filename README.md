@@ -19,6 +19,7 @@ Every packet is checked for:
   2 checks will run on the device IP:
   * an attempt to get the host name of the device.
   * an active scan for open system ports (0 - 1023) using threading.
+  
   all the collected device information will be stored on MongoDB.
 
   If the source mac address found in DB and the new ip address is different, the document will be updated.
