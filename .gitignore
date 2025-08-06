@@ -11,8 +11,10 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-sniffer_errors.log
+node_modules
 sniffer_log.json
 .env
-openai_request.py
 study
+logs
+devices.json
+anomalies.log
